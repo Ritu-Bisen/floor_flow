@@ -5,6 +5,7 @@ import {
   CheckCircle,
   Clock,
   ChevronDown,
+  Check,
 } from "lucide-react";
 import axios from "axios";
 
@@ -17,6 +18,12 @@ const FlatDetails = ({ building, floor, flat, onBack }) => {
   const [taskLoading, setTaskLoading] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [error, setError] = useState(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedTasks, setSelectedTasks] = useState([]);
+
+
+
 
 
 
@@ -168,6 +175,31 @@ useEffect(() => {
     return map[category] || "bg-blue-100 text-blue-800 border-blue-200";
   };
 
+
+const toggleSelectTask = (categoryId, taskId, taskNo) => {
+  setSelectedTasks((prevSelected) => {
+    const alreadySelected = prevSelected.find((t) => t.id === taskId);
+    if (alreadySelected) {
+      return prevSelected.filter((t) => t.id !== taskId);
+    } else {
+      return [...prevSelected, { id: taskId, categoryId, taskNo }];
+    }
+  });
+};
+
+
+
+const handleCheckboxChange = (task) => {
+  if (task.completed) return;
+
+  setSelectedTaskIds((prev) =>
+    prev.includes(task.id)
+      ? prev.filter((id) => id !== task.id)
+      : [...prev, task.id]
+  );
+};
+
+
   const toggleTask = async (categoryId, taskId, taskNo) => {
     setFlatTaskData((prevData) =>
       prevData.map((category) =>
@@ -207,7 +239,69 @@ useEffect(() => {
     }
   };
 
+// const handleBulkSubmit = async () => {
+//   setIsSubmitting(true);
+
+//   // const selectedTasks = flatTaskData.flatMap((cat) =>
+//   //   cat.tasks
+//   //     .filter((t) => selectedTaskIds.includes(t.id))
+//   //     .map((t) => ({ ...t, categoryId: cat.id }))
+//   // );
+
+ 
+ 
+
+//   // for (const task of selectedTasks) {
+//   //  // await toggleTask(task.categoryId, task.id, task.taskNo);
+//   // // console.log(task.categoryId, task.id, task.taskNo)
+//   // }
+
+//   setSelectedTaskIds([]); // Clear checkboxes
+//   setIsSubmitting(false); // Done submitting
+// };
+
+const handleBulkSubmit = async () => {
+  setIsSubmitting(true);
+
+  // Get all tasks along with their categoryId
+  const allTasks = flatTaskData.flatMap((cat) =>
+    cat.tasks.map((t) => ({ ...t, categoryId: cat.id }))
+  );
+
+  console.log("All Tasks:", allTasks);
+
+  setSelectedTaskIds([]); // Clear checkboxes (if needed)
+  setIsSubmitting(false);
+};
+
+const handleSubmitAll = async () => {
+  try {
+    // Prepare submission payload using selectedTasks structure
+    const payload = selectedTasks.map((task) => ({
+      id: task.id,
+      categoryId: task.categoryId,
+      taskNo: task.taskNo,
+    }));
+
+    console.log("Submitting all tasks:", payload);
+
+   // Example: Post each task to your backend or Apps Script
+    for (const task of payload) {
+      await toggleTask(task.categoryId, task.id, task.taskNo);
+    }
+
+    // Clear selected tasks after submission
+    setSelectedTasks([]);
+  } catch (error) {
+    console.error("Error submitting all tasks:", error);
+  }
+};
+
+
+
   const handleSubmit = async (category) => {
+    console.log(category);
+    
     if (!category.vendorName || !category.payment || !category.billing) return;
     setSubmitLoadingCategory(category.id);
     try {
@@ -276,7 +370,33 @@ useEffect(() => {
           </select>
           <ChevronDown className="h-4 w-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
         </div>
-        <div className="bg-purple-400 rounded-lg text-white px-5 py-2 text-lg font-semibold" >Submit All</div>
+   {/* {selectedTaskIds.length > 0 && (
+  <div className="flex justify-end mb-4">
+  <button
+      onClick={handleBulkSubmit}
+      disabled={isSubmitting}
+      className={`${
+        isSubmitting ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+      } text-white px-4 py-2 rounded-md text-sm font-medium`}
+    >
+      {isSubmitting
+        ? "Submitting..."
+        : `Submit Selected Tasks (${selectedTaskIds.length})`}
+    </button>
+  </div>
+)} */}
+{selectedTasks.length > 0 && (
+  <div className="p-4">
+    <button
+      onClick={handleSubmitAll}
+      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+    >
+      Submit All ({selectedTasks.length})
+    </button>
+  </div>
+)}
+
+
       </div>
 
       {loading ? (
@@ -391,7 +511,7 @@ useEffect(() => {
                               submitLoadingCategory === category.id ||
                               isSubmitted
                             }
-                            onClick={() => handleSubmit(category)}
+                            onClick={() =>{ handleSubmit(category);console.log(category)}}
                             className={`bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200 w-full sm:w-auto ${
                               submitLoadingCategory === category.id || isSubmitted
                                 ? "opacity-70 cursor-not-allowed"
@@ -428,7 +548,7 @@ useEffect(() => {
                           className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-200 transition-colors duration-150"
                         >
                           <div className="flex items-center space-x-4 min-w-0 flex-1">
-                            <button
+                            {/* <button
                               onClick={() => toggleTask(category.id, task.id, task.taskNo)}
                               className={`flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center ${
                                 task.completed
@@ -442,8 +562,31 @@ useEffect(() => {
                               ) : taskLoading === task.id ? (
                                 <div className="h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                               ) : null}
-                            </button>
-                            <div className="min-w-0 flex-1">
+                            </button> */} {task.completed ? (
+  // ✅ If completed, show disabled check-circle button
+  <button
+    className="flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center bg-green-100 text-green-600 cursor-not-allowed"
+    disabled
+  >
+    <CheckCircle className="h-4 w-4" />
+  </button>
+) : (
+  // ✅ Else, show a styled toggle button that acts like a checkbox
+  <button
+    onClick={() => toggleSelectTask(category.id, task.id, task.taskNo)}
+    className={`flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center ${
+      selectedTasks.some((t) => t.id === task.id)
+        ? "bg-blue-100 text-blue-600 border border-blue-500"
+        : "border border-gray-300 hover:border-blue-400"
+    }`}
+  >
+    {selectedTasks.some((t) => t.id === task.id) ? (
+      <Check className="h-4 w-4" />
+    ) : null}
+  </button>
+)}
+
+                     <div className="min-w-0 flex-1">
                               <div
                                 className={`font-medium text-sm sm:text-base ${
                                   task.completed
